@@ -1,0 +1,71 @@
+managed implementation in class zbp_mm_c_challan unique;
+strict ( 2 );
+
+define behavior for ZMM_C_CHALLAN //alias <alias_name>
+persistent table zsd_t_einv_log
+lock master
+authorization master ( instance )
+//etag master <field_name>
+{
+
+  create;
+  update;
+//  delete;
+
+
+
+  action cancel_challan;
+  action gen_challan parameter ZSD_A_PARTAB;
+  action get_resp;
+  action download_pdf result [1] ZA_EXCELUPLOADPARAM;
+
+  side effects
+  {
+    action gen_challan
+    affects field EwayGen,
+    field EwaybillValidUpto,
+    field EwaybillNumber,
+    field EwaybillError,
+    field EwayFail,
+    field EwaybillGenerated,
+    field EwayCancel,
+    field ewb_status,
+field ewb_icon;
+
+    action get_resp
+    affects field EwayGen,
+    field EwaybillValidUpto,
+    field EwaybillNumber,
+    field EwaybillError,
+    field EwayFail,
+    field EwaybillGenerated,
+    field EwayCancel,
+    field ewb_status,
+field ewb_icon;
+  }
+  mapping for zsd_t_einv_log corresponding
+    {
+      DocumentNumber          = document_number;
+      Company_Code            = company_code;
+      DocumentDate            = document_date;
+      LocationGstin           = location_gstin;
+      FiscalYear              = fiscal_year;
+      TransportMode           = transport_mode;
+      TransporterId           = transporter_id;
+      TransporterDocDate      = transporter_doc_date;
+      TransporterDocNum       = transporter_doc_num;
+      TransporterName         = transporter_name;
+      VehicleNumber           = vehicle_number;
+      VehicleType             = vehicle_type;
+      EwaybillDistance        = ewaybill_distance;
+      ReferenceDocumentNumber = referencedocumentnumber;
+      EwaybillValidUpto       = ewaybill_valid_upto;
+      EwaybillNumber          = ewaybill_number;
+      EwaybillError           = ewaybill_error;
+      EwayFail                = eway_fail;
+      EwaybillGenerated       = ewaybill_generated;
+      EwayCancel              = eway_cancel;
+      ewb_status              = ewb_status;
+
+    }
+}
