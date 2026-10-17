@@ -1,0 +1,158 @@
+@Metadata.layer: #CORE
+annotate entity ZMM_C_CHALLAN with
+{
+  @UI.facet: [{ id: 'Det', type: #COLLECTION, label: 'Document Header', position: 10 },
+
+                { id: 'Gen', type: #COLLECTION, label: 'General Information', position: 20 },
+                { id: 'Price', type: #COLLECTION, label: 'Pricing Details', position: 30 },
+
+                { id: 'Tdt', type: #COLLECTION, label: 'Transport Details', position: 50 },
+
+                { id: 'Fieldgroup1', purpose: #STANDARD , parentId: 'Det', type: #FIELDGROUP_REFERENCE, label: 'Header Details' , targetQualifier: 'Fieldgroup1', position: 10 },
+              
+                { id: 'Fieldgroup4', purpose: #STANDARD , parentId: 'Det', type: #FIELDGROUP_REFERENCE, label: 'E-way Bill Details' , targetQualifier: 'Fieldgroup4', position: 20 },
+
+                { id: 'Fieldgroup2', purpose: #STANDARD , parentId: 'Price', type: #FIELDGROUP_REFERENCE, label: 'Pricing Details' , targetQualifier: 'Fieldgroup2', position: 15 },
+
+                { id: 'Fieldgroup5', purpose: #STANDARD , parentId: 'Gen', type: #FIELDGROUP_REFERENCE, label: 'Bill From Details' , targetQualifier: 'Fieldgroup5', position: 10 },
+
+                { id: 'Fieldgroup6', purpose: #STANDARD , parentId: 'Gen', type: #FIELDGROUP_REFERENCE, label: 'Bill To Details' , targetQualifier: 'Fieldgroup6', position: 15 },
+
+                { id: 'Fieldgroup10', purpose: #STANDARD , parentId: 'Tdt', type: #FIELDGROUP_REFERENCE, label: 'Transport Details' , targetQualifier: 'Fieldgroup10', position: 10 }]
+
+
+
+  @UI.lineItem: [{ position: 20 , type : #FOR_ACTION ,  dataAction: 'cancel_challan' , label: 'Cancel Challan' },
+
+                 { position: 30 , type : #FOR_ACTION ,  dataAction: 'gen_challan' , label: 'Generate Challan' },
+
+                 { position: 40 , type : #FOR_ACTION ,  dataAction: 'get_resp' , label: 'Get Challan Response' },
+
+                 { position: 5 , label: 'Billing Document' }]
+
+  @UI.selectionField: [{ position: 5 }]
+  @UI.fieldGroup: [ { qualifier: 'Fieldgroup1',position: 5, label:'Document Number' } ]
+  @EndUserText.label: 'Document Number'
+  DocumentNumber;
+
+  @UI.fieldGroup: [ { qualifier: 'Fieldgroup1',position: 10, label:'Document Date' } ]
+  @UI.lineItem: [ { position: 10 , label: 'Document Date' }]
+  @UI.selectionField: [{ position: 10 }]
+  @Consumption.filter.mandatory: true
+  DocumentDate;
+
+  @UI.fieldGroup: [ { qualifier: 'Fieldgroup1',position: 10, label:'Document Type' } ]
+  Documenttype;
+
+  //  @UI.lineItem: [ { position: 15 , label: 'Company Code' }]
+  //  @UI.selectionField: [{ position: 15 }]
+  //  @Consumption.filter: { selectionType: #SINGLE }
+  //  @Consumption.filter.mandatory: true
+  //  Company_Code;
+
+  @UI.lineItem: [ { position: 16 , label: 'Fiscal Year' }]
+  @UI.selectionField: [{ position: 20 }]
+  @Consumption.filter: { selectionType: #SINGLE }
+  //  @Consumption.filter.mandatory: true
+  FiscalYear;
+
+  @UI.lineItem: [ { position: 17 , label: 'Invoice Module' }]
+  EinvModule;
+
+
+  @UI.lineItem: [ { position: 18 , label: 'Ewaybill Number' }]
+  @UI.fieldGroup: [ { qualifier: 'Fieldgroup4',position: 10, label:'Eway Bill Number' } ]
+  EwaybillNumber;
+
+  @UI.lineItem: [ { position: 19 , label: 'Ewaybill Validupto' }]
+  @UI.fieldGroup: [ { qualifier: 'Fieldgroup4',position: 20, label:'Eway Bill Valid upto' } ]
+  EwaybillValidUpto;
+
+  @UI.lineItem: [{ position: 20 , label: 'Eway Bill Status', criticality: 'ewb_icon' , criticalityRepresentation: #WITH_ICON, importance: #HIGH } ]
+  //  @UI.dataPoint: { qualifier: 'EWB', criticality: 'ewb_ser' , criticalityRepresentation: #WITH_ICON , title: 'EWB Status',  criticalityCalculation: { improvementDirection: #TARGET }}
+
+  ewb_status;
+
+  @UI.fieldGroup: [ { qualifier: 'Fieldgroup4',position: 30, label:'Eway Bill Error' } ]
+  EwaybillError;
+
+
+  @UI.fieldGroup: [ { qualifier: 'Fieldgroup2',position: 30, label:'Document Value' } ]
+  documentvalue;
+
+  @UI.fieldGroup: [ { qualifier: 'Fieldgroup2',position: 40, label:'Taxable Value' } ]
+  taxablevalue;
+
+  @UI.fieldGroup: [ { qualifier: 'Fieldgroup2',position: 50, label:'CGST' } ]
+  cgstamount;
+  @UI.fieldGroup: [ { qualifier: 'Fieldgroup2',position: 60, label:'SGST' } ]
+  sgstamount;
+  @UI.fieldGroup: [ { qualifier: 'Fieldgroup2',position: 70, label:'IGST' } ]
+  igstamount;
+
+
+
+  @UI.fieldGroup: [ { qualifier: 'Fieldgroup5',position: 10 ,label: 'Bill from Name'} ]
+  @UI.identification: [{ qualifier: 'Fieldgroup5', position: 10, label: 'Bill from Name' }]
+  Billfromlegalname;
+
+  @UI.fieldGroup: [ { qualifier: 'Fieldgroup5',position: 30, label:'Bill from GSTIN' } ]
+  Billfromgstin;
+
+  @UI.fieldGroup: [ { qualifier: 'Fieldgroup5',position: 40 , label:'Bill from Address1'} ]
+  Billfromaddress1;
+
+  @UI.fieldGroup: [ { qualifier: 'Fieldgroup5',position: 50, label:'Bill from Address2' } ]
+  Billfromaddress2;
+
+  @UI.fieldGroup: [ { qualifier: 'Fieldgroup5',position: 60 , label:'Bill from City'} ]
+  Billfromcity;
+
+  @UI.fieldGroup: [ { qualifier: 'Fieldgroup5',position: 70, label:'Bill from Pin Code' } ]
+  Billfrompincode;
+
+  @UI.fieldGroup: [ { qualifier: 'Fieldgroup6',position: 10 , label:'Bill to Name'} ]
+  Billtolegalname;
+
+  @UI.fieldGroup: [ { qualifier: 'Fieldgroup6',position: 30 , label:'Bill to GSTIN'} ]
+  Billtogstin;
+
+  @UI.fieldGroup: [ { qualifier: 'Fieldgroup6',position: 40, label:'Bill to Address1' } ]
+  Billtoaddress1;
+
+  @UI.fieldGroup: [ { qualifier: 'Fieldgroup6',position: 50, label:'Bill to Address2'} ]
+  Billtoaddress2;
+
+  @UI.fieldGroup: [ { qualifier: 'Fieldgroup6',position: 60 , label:'Bill to City'} ]
+  Billtocity;
+
+  @UI.fieldGroup: [ { qualifier: 'Fieldgroup6',position: 70, label:'Bill to Pin Code' } ]
+  Billtopincode;
+
+  //  @UI.fieldGroup: [ { qualifier: 'Fieldgroup6',position: 80 , label:'Bill to State Code'} ]
+  //  BillToStateCode;
+
+  @UI.fieldGroup: [ { qualifier: 'Fieldgroup10', position: 10  , importance: #HIGH, label: 'Transporter ID' } ]
+  //  @UI.lineItem: [ { position: 18 , label: 'Transporter ID' }]
+  TransporterId;
+
+  @UI.fieldGroup: [ { qualifier: 'Fieldgroup10', position: 20  , importance: #HIGH, label: 'Transporter Name' } ]
+  //  @UI.lineItem: [ { position: 19 , label: 'Transporter Name' }]
+  TransporterName;
+
+  @UI.fieldGroup: [ { qualifier: 'Fieldgroup10', position: 30  , importance: #HIGH, label: 'Transport Mode' } ]
+  TransportMode;
+
+  @UI.fieldGroup: [ { qualifier: 'Fieldgroup10', position: 40  , importance: #HIGH, label: 'Transporter Date' } ]
+  TransporterDocDate;
+
+  @UI.fieldGroup: [ { qualifier: 'Fieldgroup10', position: 40  , importance: #HIGH, label: 'Transport Document Number' } ]
+  TransporterDocNum;
+
+  @UI.fieldGroup: [ { qualifier: 'Fieldgroup10', position: 50  , importance: #HIGH, label: 'Vehicle Number' } ]
+  VehicleNumber;
+
+  @UI.fieldGroup: [ { qualifier: 'Fieldgroup10', position: 60  , importance: #HIGH, label: 'Type' } ]
+  VehicleType;
+
+}
