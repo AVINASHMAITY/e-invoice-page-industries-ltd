@@ -1,0 +1,984 @@
+CLASS lhc_ZMM_C_CHALLAN DEFINITION INHERITING FROM cl_abap_behavior_handler.
+  PRIVATE SECTION.
+    TYPES: BEGIN OF TY_CRITERIA,
+             location_gstin  TYPE string,
+             location_name   TYPE string,
+             document_number TYPE string,
+             document_date   TYPE string,
+             supply_type     TYPE string,
+             document_type   TYPE string,
+             bill_from_gstin TYPE string,
+             portcode        TYPE string,
+           END OF TY_CRITERIA.
+    TYPES: TT_CRITERIA TYPE STANDARD TABLE OF TY_CRITERIA WITH EMPTY KEY.
+    TYPES: BEGIN OF TY_ERROR_DETAIL,
+             code    TYPE string,
+             message TYPE string,
+             type    TYPE string,
+           END OF TY_ERROR_DETAIL,
+           TT_ERROR_DETAIL TYPE STANDARD TABLE OF TY_ERROR_DETAIL WITH EMPTY KEY,
+           BEGIN OF TY_PROPERTY_ERROR,
+             propertyName TYPE string,
+             errors       TYPE TT_ERROR_DETAIL,
+           END OF TY_PROPERTY_ERROR,
+           TT_PROPERTY_ERROR TYPE STANDARD TABLE OF TY_PROPERTY_ERROR WITH EMPTY KEY,
+           BEGIN OF TY_EWB,
+             pushStatus           TYPE string,
+             eway_bill_number     TYPE string,
+             eway_bill_date       TYPE string,
+             eway_bill_valid_upto TYPE string,
+             ewb_cancel           TYPE string,
+             ewb_success          TYPE string,
+             ewb_fail             TYPE string,
+             errors               TYPE TT_ERROR_DETAIL,
+           END OF TY_EWB,
+           BEGIN OF TY_CANCEL_REQUEST,
+             reason    TYPE string,
+             remarks   TYPE string,
+             criterias TYPE TT_CRITERIA,
+           END OF TY_CANCEL_REQUEST,
+           BEGIN OF TY_VALIDATION_REPORT,
+             locationGstin  TYPE string,
+             locationName   TYPE string,
+             documentNumber TYPE string,
+             documentDate   TYPE string,
+             billFromGstin  TYPE string,
+             supplyType     TYPE string,
+             documentType   TYPE string,
+             portCode       TYPE string,
+             custom1        TYPE string,
+             custom2        TYPE string,
+             custom3        TYPE string,
+             custom4        TYPE string,
+             custom5        TYPE string,
+             custom6        TYPE string,
+             custom7        TYPE string,
+             custom8        TYPE string,
+             custom9        TYPE string,
+             custom10       TYPE string,
+             custom11       TYPE string,
+             custom12       TYPE string,
+             custom13       TYPE string,
+             custom14       TYPE string,
+             custom15       TYPE string,
+             custom16       TYPE string,
+             custom17       TYPE string,
+             custom18       TYPE string,
+             custom19       TYPE string,
+             custom20       TYPE string,
+             propertyErrors TYPE TT_PROPERTY_ERROR,
+             ewb            TYPE TY_EWB,
+           END OF TY_VALIDATION_REPORT,
+           TT_VALIDATION_REPORT TYPE STANDARD TABLE OF TY_VALIDATION_REPORT WITH EMPTY KEY.
+    TYPES: BEGIN OF TY_DATA_REPORT,
+             locationGstin  TYPE string,
+             locationName   TYPE string,
+             documentNumber TYPE string,
+             documentDate   TYPE string,
+             billFromGstin  TYPE string,
+             supplyType     TYPE string,
+             documentType   TYPE string,
+             irn            TYPE string,
+             portCode       TYPE string,
+             custom1        TYPE string,
+             custom2        TYPE string,
+             custom3        TYPE string,
+             custom4        TYPE string,
+             custom5        TYPE string,
+             custom6        TYPE string,
+             custom7        TYPE string,
+             custom8        TYPE string,
+             custom9        TYPE string,
+             custom10       TYPE string,
+             custom11       TYPE string,
+             custom12       TYPE string,
+             custom13       TYPE string,
+             custom14       TYPE string,
+             custom15       TYPE string,
+             custom16       TYPE string,
+             custom17       TYPE string,
+             custom18       TYPE string,
+             custom19       TYPE string,
+             custom20       TYPE string,
+             pushstatus     TYPE string,
+             ewayBillNumber TYPE int8,
+             generatedDate  TYPE string,
+             validUpto      TYPE string,
+             distance       TYPE i,
+             errors         TYPE STANDARD TABLE OF TY_ERROR WITH EMPTY KEY,
+           END OF TY_DATA_REPORT.
+    TYPES: BEGIN OF TY_SAVE_DOCUMENTS_RESPONSE,
+             requestType      TYPE string,
+             status           TYPE string,
+             version          TYPE string,
+             validationReport TYPE TT_VALIDATION_REPORT,
+             dataReport       TYPE TT_VALIDATION_REPORT,
+             referenceId      TYPE string,
+           END OF TY_SAVE_DOCUMENTS_RESPONSE.
+    TYPES: BEGIN OF TY_EWB1,
+             ewaybillnumber TYPE string,
+             generateddate  TYPE string,
+             validupto      TYPE string,
+             distance       TYPE i,
+           END OF TY_EWB1.
+    TYPES: BEGIN OF TY_EINV,
+             irn           TYPE string,
+             ackNumber     TYPE string,
+             ackDate       TYPE string,
+             signedInvoice TYPE string,
+             signedQrCode  TYPE string,
+           END OF TY_EINV.
+    TYPES: BEGIN OF TY_DATA_REPORT1,
+             locationgstin  TYPE string,
+             locationname   TYPE string,
+             documentnumber TYPE string,
+             documentdate   TYPE string,
+             supplytype     TYPE string,
+             documenttype   TYPE string,
+             billfromgstin  TYPE string,
+             einv           TYPE TY_EINV,
+             ewb            TYPE TY_EWB1,
+           END OF TY_DATA_REPORT1,
+           TT_DATA_REPORT1 TYPE STANDARD TABLE OF TY_DATA_REPORT1 WITH EMPTY KEY.
+    TYPES: BEGIN OF TY_CPI_RESPONSE,
+             requesttype TYPE string,
+             status      TYPE string,
+             version     TYPE string,
+             datareport  TYPE TT_DATA_REPORT1,
+             referenceid TYPE string,
+           END OF TY_CPI_RESPONSE.
+    METHODS get_instance_authorizations FOR INSTANCE AUTHORIZATION
+      IMPORTING keys REQUEST requested_authorizations FOR zmm_c_challan RESULT result.
+    METHODS cancel_challan FOR MODIFY
+      IMPORTING keys FOR ACTION zmm_c_challan~cancel_challan.
+    METHODS gen_challan FOR MODIFY
+      IMPORTING keys FOR ACTION zmm_c_challan~gen_challan.
+    METHODS get_resp FOR MODIFY
+      IMPORTING keys FOR ACTION zmm_c_challan~get_resp.
+    METHODS download_pdf FOR MODIFY
+      IMPORTING keys FOR ACTION zmm_c_challan~download_pdf RESULT result.
+ENDCLASS.
+
+CLASS lhc_ZMM_C_CHALLAN IMPLEMENTATION.
+  METHOD get_instance_authorizations.
+  ENDMETHOD.
+
+  METHOD cancel_challan.
+    DATA: WA_CANCEL_EWAY_REQ TYPE TY_CANCEL_REQUEST,
+          LT_ERROR_RESPONSE  TYPE STANDARD TABLE OF TY_PROPERTY_ERROR,
+          LV_ERROR           TYPE string,
+          LT_UPDATE          TYPE TABLE FOR UPDATE zmm_c_challan.
+    IF keys IS NOT INITIAL.
+      SELECT document_number,document_date,company_code,fiscal_year,location_gstin,billfromgstin,documenttype
+        FROM zsd_t_einv_log
+        FOR ALL ENTRIES IN @keys
+        WHERE document_number = @keys-DocumentNumber
+        AND ewaybill_number IS NOT INITIAL
+        INTO TABLE @DATA(LT_EINV_LOG).
+      IF LT_EINV_LOG IS NOT INITIAL.
+        WA_CANCEL_EWAY_REQ-reason = 'Duplicate'.
+        WA_CANCEL_EWAY_REQ-remarks = 'Duplicate'.
+        WA_CANCEL_EWAY_REQ-criterias = VALUE #( FOR WA_EINV_LOG IN LT_EINV_LOG ( location_gstin = WA_EINV_LOG-location_gstin
+                                                                                 document_number = |{ WA_EINV_LOG-document_number ALPHA = OUT }|
+                                                                                 document_date = |{ WA_EINV_LOG-Document_Date+6(2) }-{ WA_EINV_LOG-Document_Date+4(2) }-{ WA_EINV_LOG-Document_Date+0(4) }|
+                                                                                 supply_type = 'S'
+                                                                                 document_type = WA_EINV_LOG-documenttype
+                                                                                 bill_from_gstin = WA_EINV_LOG-billfromgstin ) ).
+        DATA(LV_CANCEL_REQ) = /ui2/cl_json=>serialize( data = WA_CANCEL_EWAY_REQ
+                                                       pretty_name = /ui2/cl_json=>pretty_mode-camel_case ).
+        DATA(LO_INVOICE) = NEW zcl_invoice(  ).
+        LO_INVOICE->call_cpi( EXPORTING iv_req_payload = LV_CANCEL_REQ
+                                        iv_action      = 'CancelEwaybill'
+                                        IMPORTING ev_response    = DATA(LV_REFERENCE) ).
+        FIND REGEX '"referenceId"\s*:\s*"([^"]+)"' IN LV_REFERENCE SUBMATCHES DATA(LV_REFERENCEID).
+        IF LV_REFERENCEID IS NOT INITIAL.
+          LO_INVOICE->call_cpi( EXPORTING  iv_action       = 'Status'
+                                           iv_reference_id = LV_REFERENCEID
+                                IMPORTING  ev_response     = DATA(LV_RESPONSE) ).
+          FIND REGEX '"status"\s*:\s*"([^"]*)"' IN LV_RESPONSE SUBMATCHES DATA(LV_STATUS).
+          IF LV_STATUS EQ 'P'.
+            LT_UPDATE = VALUE #( FOR WA_KEYS IN keys ( DocumentNumber = WA_KEYS-DocumentNumber
+                                   DocumentDate = WA_KEYS-DocumentDate
+                                   Company_Code = WA_KEYS-Company_Code
+                                   EwayCancel = 'X'
+                                   EwayFail = ''
+                                   EwaybillError = ''
+                                   %control-DocumentNumber = if_abap_behv=>mk-on
+                                   %control-DocumentDate = if_abap_behv=>mk-on
+                                   %control-Company_Code = if_abap_behv=>mk-on
+                                   %control-EwayFail = if_abap_behv=>mk-on
+                                   %control-EwaybillError = if_abap_behv=>mk-on
+                                   %control-EwayCancel = if_abap_behv=>mk-on ) ).
+            reported-zmm_c_challan = VALUE #( (
+                   %msg = new_message( id = 'EWB'
+                                       number = '1'
+                                       severity = if_abap_behv_message=>severity-information
+                                       v1 = 'EWB CANCEL SUCCESSFULLY'
+                                      )
+) ).
+          ENDIF.
+        ELSE.
+          /ui2/cl_json=>deserialize( EXPORTING json = LV_REFERENCE
+                                     CHANGING  data = LT_ERROR_RESPONSE ).
+          TRY.
+              DATA(WA_ERROR_RESPONSE) = LT_ERROR_RESPONSE[ 1 ].
+              IF WA_ERROR_RESPONSE-errors IS NOT INITIAL.
+                LOOP AT WA_ERROR_RESPONSE-errors INTO DATA(WA_ERRORS).
+                  LV_ERROR = |{ LV_ERROR } | && '|' &&  | { WA_ERRORS-message }|.
+                  IF sy-tabix EQ '1'.
+                    REPLACE ALL OCCURRENCES OF '|' IN LV_ERROR WITH ''.
+                  ENDIF.
+                ENDLOOP.
+                LT_UPDATE = VALUE #( FOR WA_KEYS IN keys ( DocumentNumber = WA_KEYS-DocumentNumber
+                                                           DocumentDate = WA_KEYS-DocumentDate
+                                                           Company_Code = WA_KEYS-Company_Code
+                                                           EwaybillError = LV_ERROR
+                                                           %control-DocumentNumber = if_abap_behv=>mk-on
+                                                           %control-DocumentDate = if_abap_behv=>mk-on
+                                                           %control-Company_Code = if_abap_behv=>mk-on
+                                                           %control-EwaybillError = if_abap_behv=>mk-on ) ).
+                reported-zmm_c_challan = VALUE #( ( %msg = new_message_with_text( text = LV_ERROR
+                                     severity = if_abap_behv_message=>severity-error ) )  ).
+              ENDIF.
+            CATCH cx_sy_itab_line_not_found.
+          ENDTRY.
+        ENDIF.
+      ELSE.
+        reported-zmm_c_challan = VALUE #( ( %msg = new_message( id = 'ZSD_MSG_CYG'
+                                                                  number = '003'
+                                                                  severity = if_abap_behv_message=>severity-error
+                                                                  v1 = keys[ 1 ]-DocumentNumber ) )  ) .
+      ENDIF.
+      IF LT_UPDATE IS NOT INITIAL.
+        MODIFY ENTITIES OF zmm_c_challan IN LOCAL MODE
+         ENTITY zmm_c_challan
+         UPDATE FROM LT_UPDATE
+         FAILED DATA(LT_FAILED)
+         REPORTED DATA(LT_REPORTED)
+         MAPPED DATA(LT_MAPPED).
+      ENDIF.
+    ENDIF.
+  ENDMETHOD.
+
+  METHOD gen_challan.
+    TYPES : BEGIN OF TY_REFERENCE_ID,
+              referenceid TYPE string,
+            END OF TY_REFERENCE_ID.
+    DATA : WA_SUCCESS_EWB TYPE TY_SAVE_DOCUMENTS_RESPONSE.
+    DATA : WA_EWB TYPE TY_CPI_RESPONSE.
+    DATA : WA_LTS TYPE abp_creation_tstmpl.
+    DATA : LV_COUNTER TYPE char10 VALUE '1'.
+    DATA : WA_REFERENCEID    TYPE TY_REFERENCE_ID,
+           WA_ERROR_RESPONSE TYPE TY_SAVE_DOCUMENTS_RESPONSE,
+           LV_ERROR          TYPE string.
+    DATA(LO_INVOICE) = NEW zcl_invoice(  ).
+    DATA : LT_CREATE TYPE TABLE FOR CREATE zmm_c_challan.
+    DATA : LT_UPDATE TYPE TABLE FOR UPDATE zmm_c_challan.
+    READ ENTITIES OF zmm_c_challan
+      IN LOCAL MODE
+      ENTITY zmm_c_challan
+      ALL FIELDS WITH CORRESPONDING #( keys )
+      RESULT DATA(LT_EXIST).
+    DATA : LR_DOC  TYPE RANGE OF mkpf-mblnr,
+           LR_DATE TYPE RANGE OF mkpf-bldat.
+    LR_DOC  = VALUE #( ( sign = 'I' option = 'EQ' low = keys[ 1 ]-DocumentNumber ) ).
+    LR_DATE = VALUE #( ( sign = 'I' option = 'EQ' low = keys[ 1 ]-DocumentDate ) ).
+    TYPES:
+      BEGIN OF TY_TRANSPORT,
+        documentnumber        TYPE string,
+        documentdate          TYPE string,
+        transportername       TYPE string,
+        transporterid         TYPE string,
+        vehicletype           TYPE string,
+        vehiclenumber         TYPE string,
+        transportmode         TYPE string,
+        transportdocumentdate TYPE string,
+        transportdocumentnum  TYPE string,
+      END OF TY_TRANSPORT,
+      TT_EWB TYPE STANDARD TABLE OF TY_TRANSPORT WITH EMPTY KEY.
+    DATA LT_TRANSPORT_P TYPE TABLE OF TY_TRANSPORT.
+    IF keys[ 1 ]-%param IS NOT INITIAL.
+      LT_TRANSPORT_P = VALUE #( (
+                                  documentnumber        = keys[ 1 ]-documentnumber
+                                  documentdate          = |{ keys[ 1 ]-documentdate+6(2) }-{ keys[ 1 ]-documentdate+4(2) }-{ keys[ 1 ]-documentdate+0(4) }|
+                                  transporterid         = keys[ 1 ]-%param-transporterid
+                                  transportername       = keys[ 1 ]-%param-transportername
+                                  transportmode         = keys[ 1 ]-%param-transportmode
+                                  transportdocumentdate = keys[ 1 ]-%param-transportdocdate
+                                  transportdocumentnum = keys[ 1 ]-%param-transportdocnumber
+                                  vehiclenumber         = keys[ 1 ]-%param-vehiclenumber
+                                  vehicletype           = keys[ 1 ]-%param-vehicletype
+                                  ) ).
+    ENDIF.
+    LO_INVOICE->get_data_for_challan(
+      EXPORTING
+        iv_billing_document = LR_DOC
+        iv_document_date    = LR_DATE
+        lt_transport_p = LT_TRANSPORT_P
+      IMPORTING
+        et_display_table    = DATA(LT_TABLE)
+        lv_request = DATA(LV_REQUEST)
+    ).
+    DATA: TT_FINAL_GLOBAL TYPE STANDARD TABLE OF zsd_s_global_st .
+    TT_FINAL_GLOBAL = CORRESPONDING #( LT_TABLE ).
+    TRY.
+        DATA(WA_DATA) = LT_TABLE[ 1 ].
+      CATCH cx_sy_itab_line_not_found.
+    ENDTRY.
+    IF LV_REQUEST IS NOT INITIAL.
+      LO_INVOICE->call_cpi( EXPORTING iv_req_payload = LV_REQUEST
+                                        iv_action      = 'saveDocuments'
+                              IMPORTING ev_response    = DATA(LV_REFERENCE) ).
+      IF LV_REFERENCE CS 'referenceID'.
+        /ui2/cl_json=>deserialize( EXPORTING json = LV_REFERENCE
+                                   CHANGING  data = WA_REFERENCEID  ).
+        IF WA_REFERENCEID-referenceid IS NOT INITIAL.
+          WAIT UP TO 2 SECONDS.
+          IF WA_REFERENCEID-referenceid IS NOT INITIAL.
+            LO_INVOICE->call_cpi( EXPORTING  iv_action       = 'Status'
+                                             iv_reference_id = WA_REFERENCEID-referenceid
+                                  IMPORTING  ev_response     = DATA(LV_RESPONSE) ).
+            FIND REGEX '"status"\s*:\s*"([^"]*)"' IN LV_RESPONSE SUBMATCHES DATA(LV_STATUS).
+          ENDIF.
+          /ui2/cl_json=>deserialize( EXPORTING json = LV_RESPONSE
+                                     CHANGING  data = WA_SUCCESS_EWB ).
+          /ui2/cl_json=>deserialize( EXPORTING json = LV_RESPONSE
+                                     CHANGING data =  WA_EWB ).
+          IF LV_STATUS EQ 'P'.
+            TRY.
+                IF WA_EWB-datareport[ 1 ]-ewb-ewaybillnumber IS NOT INITIAL.
+                  DATA(WA_EWB_DET) = WA_EWB-datareport[ 1 ].
+                  LT_CREATE = VALUE #( ( documentnumber                   = keys[ 1 ]-DocumentNumber
+                                           documentdate                     = keys[ 1 ]-DocumentDate
+                                           company_code                      = keys[ 1 ]-Company_Code
+                                           LocationGstin                    = WA_DATA-locationgstin
+                                           Billfromgstin                    = WA_DATA-billfromgstin
+                                           Documenttype                     = WA_DATA-documenttype
+                                           Billfromlegalname                     = WA_DATA-billfromlegalname
+                                           Billfromaddress1                     = WA_DATA-billfromaddress1
+                                           Billfromaddress2                     = WA_DATA-billfromaddress2
+                                           Billfromcity                     = WA_DATA-billfromcity
+                                           Billfrompincode                  = WA_DATA-billfrompincode
+                                           Billtoaddress1                       = WA_DATA-billtoaddress1
+                                           Billtoaddress2                       = WA_DATA-billtoaddress2
+                                           Billtocity                       = WA_DATA-billtocity
+                                           Billtogstin                      = WA_DATA-billtogstin
+                                           Billtolegalname                       = WA_DATA-billtolegalname
+                                           Billtopincode                    = WA_DATA-billtopincode
+                                           Dispatchfromgstin                = WA_DATA-dispatchfromgstin
+                                           Dispatchfromname                 = WA_DATA-billfromlegalname
+                                           Dispatchfromadd1                 = WA_DATA-dispatchfromadd1
+                                           Dispatchfromadd2                 = WA_DATA-dispatchfromadd2
+                                           Dispatchfromcity                 = WA_DATA-dispatchfromcity
+                                           Dispatchfrompincode              = WA_DATA-dispatchfrompincode
+                                           Shiptoadd1                       = WA_DATA-shiptoadd1
+                                           Shiptoadd2                       = WA_DATA-shiptoadd2
+                                           Shiptocity                       = WA_DATA-shiptocity
+                                           Shiptopincode                    = WA_DATA-shiptopincode
+                                           Shiptoname                       = WA_DATA-Shiptoname
+                                           Shiptogstin                      = WA_DATA-shiptogstin
+                                           EwaybillNumber     = WA_EWB_DET-ewb-ewaybillnumber
+                                           EwaybillDistance    = WA_EWB_DET-ewb-distance
+                                           EwaybillValidUpto  = WA_EWB_DET-ewb-validupto
+                                           EwaybillGenerated = 'X'
+                                           EwaybillError = ''
+                                           EwayFail = ''
+                                           transporterid         = LT_TRANSPORT_P[ 1 ]-transporterid
+                                           transportername       = LT_TRANSPORT_P[ 1 ]-transportername
+                                           transportmode         = LT_TRANSPORT_P[ 1 ]-transportmode
+                                           transporterdocdate    = LT_TRANSPORT_P[ 1 ]-transportdocumentdate
+                                           transporterdocnum     = LT_TRANSPORT_P[ 1 ]-transportdocumentnum
+                                           vehiclenumber         = LT_TRANSPORT_P[ 1 ]-vehiclenumber
+                                           vehicletype           = LT_TRANSPORT_P[ 1 ]-vehicletype
+                                           documentvalue = WA_DATA-documentvalue
+                                           cgstamount = WA_DATA-cgstamount
+                                           sgstamount = WA_DATA-sgstamount
+                                           igstamount = WA_DATA-igstamount
+                                           %control-DocumentNumber = if_abap_behv=>mk-on
+                                           %control-DocumentDate = if_abap_behv=>mk-on
+                                           %control-Documentvalue = if_abap_behv=>mk-on
+                                           %control-transporterid = if_abap_behv=>mk-on
+                                           %control-transportername = if_abap_behv=>mk-on
+                                           %control-transportmode = if_abap_behv=>mk-on
+                                           %control-transporterdocdate = if_abap_behv=>mk-on
+                                           %control-TransporterDocNum = if_abap_behv=>mk-on
+                                           %control-vehiclenumber = if_abap_behv=>mk-on
+                                           %control-vehicletype = if_abap_behv=>mk-on
+                                           %control-igstamount = if_abap_behv=>mk-on
+                                           %control-cgstamount = if_abap_behv=>mk-on
+                                           %control-sgstamount = if_abap_behv=>mk-on
+                                           %control-Documenttype = if_abap_behv=>mk-on
+                                           %control-Company_Code = if_abap_behv=>mk-on
+                                           %control-fiscalyear = if_abap_behv=>mk-on
+                                           %control-EwaybillGenerated = if_abap_behv=>mk-on
+                                           %control-EwaybillNumber = if_abap_behv=>mk-on
+                                           %control-EwaybillValidUpto = if_abap_behv=>mk-on
+                                           %control-EwaybillDistance = if_abap_behv=>mk-on
+                                           %control-EwaybillError = if_abap_behv=>mk-on
+                                           %control-EwayFail = if_abap_behv=>mk-on
+                                           %control-Billfromgstin = if_abap_behv=>mk-on
+                                           %control-LocationGstin = if_abap_behv=>mk-on
+                                           %control-Billfromlegalname = if_abap_behv=>mk-on
+                                           %control-Billfromaddress1 = if_abap_behv=>mk-on
+                                           %control-Billfromaddress2 = if_abap_behv=>mk-on
+                                           %control-Billfromcity = if_abap_behv=>mk-on
+                                           %control-Billfrompincode = if_abap_behv=>mk-on
+                                           %control-Billtoaddress1 = if_abap_behv=>mk-on
+                                           %control-Billtoaddress2 = if_abap_behv=>mk-on
+                                           %control-Billtocity = if_abap_behv=>mk-on
+                                           %control-Billtogstin = if_abap_behv=>mk-on
+                                           %control-Billtolegalname = if_abap_behv=>mk-on
+                                           %control-Billtopincode = if_abap_behv=>mk-on
+                                           %control-Dispatchfromname = if_abap_behv=>mk-on
+                                           %control-Dispatchfromadd1 = if_abap_behv=>mk-on
+                                           %control-Dispatchfromadd2 = if_abap_behv=>mk-on
+                                           %control-Dispatchfromcity = if_abap_behv=>mk-on
+                                           %control-Dispatchfrompincode = if_abap_behv=>mk-on
+                                           %control-Shiptoadd1 = if_abap_behv=>mk-on
+                                           %control-Shiptoadd2 = if_abap_behv=>mk-on
+                                           %control-Shiptocity = if_abap_behv=>mk-on
+                                           %control-Shiptopincode = if_abap_behv=>mk-on
+                                           %control-Success = if_abap_behv=>mk-on
+                                           %control-fail = if_abap_behv=>mk-on
+                                           %control-Dispatchfromgstin = if_abap_behv=>mk-on
+                                           %control-Shiptogstin = if_abap_behv=>mk-on
+                                           %control-Shiptoname = if_abap_behv=>mk-on ) ).
+                  reported-zmm_c_challan = VALUE #( ( %msg = new_message( id = 'ZSD_MSG_CYG'
+                                                                                 number = '010'
+                                                                                 severity = if_abap_behv_message=>severity-success
+                                                                                 v1 = keys[ 1 ]-DocumentNumber ) )  ) .
+                ENDIF.
+              CATCH cx_sy_itab_line_not_found.
+            ENDTRY.
+          ELSEIF LV_STATUS EQ 'IP' OR LV_STATUS EQ 'YNS'.
+            IF WA_SUCCESS_EWB-status EQ 'IP' AND WA_SUCCESS_EWB-referenceid IS NOT INITIAL.
+              WAIT UP TO 1 SECONDS.
+              CLEAR LV_RESPONSE.
+              LO_INVOICE->call_cpi( EXPORTING  iv_action       = 'Status'
+                                               iv_reference_id = WA_SUCCESS_EWB-referenceid
+                                    IMPORTING  ev_response     = LV_RESPONSE ).
+              /ui2/cl_json=>deserialize( EXPORTING json = LV_RESPONSE
+                                         CHANGING  data = WA_SUCCESS_EWB ).
+              TRY.
+                  CLEAR WA_DATA.
+                  WA_DATA = LT_TABLE[ 1 ].
+                  DATA(WA_EWB_DET1) = WA_SUCCESS_EWB-datareport[ 1 ].
+                  LT_CREATE = VALUE #( ( documentnumber = keys[ 1 ]-DocumentNumber
+                                          documentdate = keys[ 1 ]-DocumentDate
+                                          company_code = keys[ 1 ]-Company_Code
+                                          documentvalue = WA_DATA-documentvalue
+                                          cgstamount = WA_DATA-cgstamount
+                                          sgstamount = WA_DATA-sgstamount
+                                          igstamount = WA_DATA-igstamount
+                                          LocationGstin = WA_DATA-locationgstin
+                                          Billfromgstin = WA_DATA-billfromgstin
+                                          Documenttype = WA_DATA-documenttype
+                                          Billfromlegalname = WA_DATA-billfromlegalname
+                                          Billfromaddress1 = WA_DATA-billfromaddress1
+                                          Billfromaddress2 = WA_DATA-billfromaddress2
+                                          Billfromcity = WA_DATA-billfromcity
+                                          Billfrompincode = WA_DATA-billfrompincode
+                                          Billtoaddress1 = WA_DATA-billtoaddress1
+                                          Billtoaddress2 = WA_DATA-billtoaddress2
+                                          Billtocity = WA_DATA-billtocity
+                                          Billtogstin = WA_DATA-billtogstin
+                                          Billtolegalname = WA_DATA-billtolegalname
+                                          Billtopincode = WA_DATA-billtopincode
+                                          Dispatchfromgstin = WA_DATA-dispatchfromgstin
+                                          Dispatchfromname = WA_DATA-billfromlegalname
+                                          Dispatchfromadd1 = WA_DATA-dispatchfromadd1
+                                          Dispatchfromadd2 = WA_DATA-dispatchfromadd2
+                                          Dispatchfromcity = WA_DATA-dispatchfromcity
+                                          Dispatchfrompincode = WA_DATA-dispatchfrompincode
+                                          Shiptoadd1 = WA_DATA-shiptoadd1
+                                          Shiptoadd2 = WA_DATA-shiptoadd2
+                                          Shiptocity = WA_DATA-shiptocity
+                                          Shiptopincode = WA_DATA-shiptopincode
+                                          Shiptoname = WA_DATA-Shiptoname
+                                          Shiptogstin = WA_DATA-shiptogstin
+                                          EwaybillNumber = WA_EWB_DET1-ewb-eway_bill_number
+                                          EwaybillValidUpto = WA_EWB_DET1-ewb-eway_bill_valid_upto
+                                          EwaybillGenerated = 'X'
+                                          Success = 'X'
+                                          fail = ''
+                                          %control-DocumentNumber = if_abap_behv=>mk-on
+                                          %control-DocumentDate = if_abap_behv=>mk-on
+                                          %control-Documenttype = if_abap_behv=>mk-on
+                                          %control-Documentvalue = if_abap_behv=>mk-on
+                                          %control-igstamount = if_abap_behv=>mk-on
+                                          %control-cgstamount = if_abap_behv=>mk-on
+                                          %control-sgstamount = if_abap_behv=>mk-on
+                                          %control-Company_Code = if_abap_behv=>mk-on
+                                          %control-fiscalyear = if_abap_behv=>mk-on
+                                          %control-EwaybillGenerated = if_abap_behv=>mk-on
+                                          %control-EwaybillNumber = if_abap_behv=>mk-on
+                                          %control-EwaybillValidUpto = if_abap_behv=>mk-on
+                                          %control-Billfromgstin = if_abap_behv=>mk-on
+                                          %control-LocationGstin = if_abap_behv=>mk-on
+                                          %control-Billfromlegalname = if_abap_behv=>mk-on
+                                          %control-Billfromaddress1 = if_abap_behv=>mk-on
+                                          %control-Billfromaddress2 = if_abap_behv=>mk-on
+                                          %control-Billfromcity = if_abap_behv=>mk-on
+                                          %control-Billfrompincode = if_abap_behv=>mk-on
+                                          %control-Billtoaddress1 = if_abap_behv=>mk-on
+                                          %control-Billtoaddress2 = if_abap_behv=>mk-on
+                                          %control-Billtocity = if_abap_behv=>mk-on
+                                          %control-Billtogstin = if_abap_behv=>mk-on
+                                          %control-Billtolegalname = if_abap_behv=>mk-on
+                                          %control-Billtopincode = if_abap_behv=>mk-on
+                                          %control-Dispatchfromname = if_abap_behv=>mk-on
+                                          %control-Dispatchfromadd1 = if_abap_behv=>mk-on
+                                          %control-Dispatchfromadd2 = if_abap_behv=>mk-on
+                                          %control-Dispatchfromcity = if_abap_behv=>mk-on
+                                          %control-Dispatchfrompincode = if_abap_behv=>mk-on
+                                          %control-Shiptoadd1 = if_abap_behv=>mk-on
+                                          %control-Shiptoadd2 = if_abap_behv=>mk-on
+                                          %control-Shiptocity = if_abap_behv=>mk-on
+                                          %control-Shiptopincode = if_abap_behv=>mk-on
+                                          %control-Success = if_abap_behv=>mk-on
+                                          %control-fail = if_abap_behv=>mk-on
+                                          %control-Dispatchfromgstin = if_abap_behv=>mk-on
+                                          %control-Shiptogstin = if_abap_behv=>mk-on
+                                          %control-Shiptoname = if_abap_behv=>mk-on ) ).
+                  reported-zmm_c_challan = VALUE #( ( %msg = new_message( id = 'ZSD_MSG_CYG'
+                                                                                 number = '010'
+                                                                                 severity = if_abap_behv_message=>severity-success
+                                                                                 v1 = keys[ 1 ]-DocumentNumber ) )  ) .
+                CATCH cx_sy_itab_line_not_found.
+              ENDTRY.
+            ENDIF.
+          ELSEIF LV_STATUS EQ 'PE'.
+            IF WA_SUCCESS_EWB-validationreport IS NOT INITIAL.
+              DATA(WA_VALIDATION_REPORT) = WA_SUCCESS_EWB-validationreport[ 1 ].
+              IF WA_VALIDATION_REPORT IS NOT INITIAL.
+                LOOP AT WA_VALIDATION_REPORT-propertyerrors INTO DATA(WA_PROPERTY_ERRORS).
+                  LV_ERROR = |{ LV_ERROR } | && '|' &&  | { WA_PROPERTY_ERRORS-errors[ 1 ]-message }|.
+                ENDLOOP.
+                IF LV_ERROR IS NOT INITIAL.
+                  LV_COUNTER = LV_COUNTER + 1.
+                  TRY.
+                      WA_DATA = LT_TABLE[ 1 ].
+                      LT_CREATE = VALUE #( ( documentnumber = keys[ 1 ]-DocumentNumber
+                                        documentdate = keys[ 1 ]-DocumentDate
+                                        company_code = keys[ 1 ]-Company_Code
+                                        LocationGstin = WA_DATA-locationgstin
+                                        Billfromgstin = WA_DATA-billfromgstin
+                                        Documenttype = WA_DATA-documenttype
+                                        documentvalue = WA_DATA-documentvalue
+                                        cgstamount = WA_DATA-cgstamount
+                                        sgstamount = WA_DATA-sgstamount
+                                        igstamount = WA_DATA-igstamount
+                                        Billfromlegalname = WA_DATA-billfromlegalname
+                                        Billfromaddress1 = WA_DATA-billfromaddress1
+                                        Billfromaddress2 = WA_DATA-billfromaddress2
+                                        Billfromcity = WA_DATA-billfromcity
+                                        Billfrompincode = WA_DATA-billfrompincode
+                                        Billtoaddress1 = WA_DATA-billtoaddress1
+                                        Billtoaddress2 = WA_DATA-billtoaddress2
+                                        Billtocity = WA_DATA-billtocity
+                                        Billtogstin = WA_DATA-billtogstin
+                                        Billtolegalname = WA_DATA-billtolegalname
+                                        Billtopincode = WA_DATA-billtopincode
+                                        Dispatchfromgstin = WA_DATA-dispatchfromgstin
+                                        Dispatchfromname = WA_DATA-billfromlegalname
+                                        Dispatchfromadd1 = WA_DATA-dispatchfromadd1
+                                        Dispatchfromadd2 = WA_DATA-dispatchfromadd2
+                                        Dispatchfromcity = WA_DATA-dispatchfromcity
+                                        Dispatchfrompincode = WA_DATA-dispatchfrompincode
+                                        Shiptoadd1 = WA_DATA-shiptoadd1
+                                        Shiptoadd2 = WA_DATA-shiptoadd2
+                                        Shiptocity = WA_DATA-shiptocity
+                                        Shiptopincode = WA_DATA-shiptopincode
+                                        Shiptoname = WA_DATA-Shiptoname
+                                        Shiptogstin = WA_DATA-shiptogstin
+                                        EwaybillNumber = WA_EWB_DET-ewb-ewaybillnumber
+                                        EwaybillValidUpto = WA_EWB_DET-ewb-validupto
+                                        EwayFail = 'X'
+                                        EwaybillError = LV_ERROR
+                                        fail = ''
+                                        transporterid = COND #( WHEN LT_TRANSPORT_P IS NOT INITIAL THEN LT_TRANSPORT_P[ 1 ]-transporterid )
+                                        transportername = COND #( WHEN LT_TRANSPORT_P IS NOT INITIAL THEN LT_TRANSPORT_P[ 1 ]-transportername )
+                                        transportmode = COND #( WHEN LT_TRANSPORT_P IS NOT INITIAL THEN LT_TRANSPORT_P[ 1 ]-transportmode )
+                                        transporterdocdate = COND #( WHEN LT_TRANSPORT_P IS NOT INITIAL THEN LT_TRANSPORT_P[ 1 ]-transportdocumentdate )
+                                        TransporterDocNum = COND #( WHEN LT_TRANSPORT_P IS NOT INITIAL THEN LT_TRANSPORT_P[ 1 ]-transportdocumentnum )
+                                        vehiclenumber = COND #( WHEN LT_TRANSPORT_P IS NOT INITIAL THEN LT_TRANSPORT_P[ 1 ]-vehiclenumber )
+                                        vehicletype = COND #( WHEN LT_TRANSPORT_P IS NOT INITIAL THEN LT_TRANSPORT_P[ 1 ]-vehicletype )
+                                        %control-DocumentNumber = if_abap_behv=>mk-on
+                                        %control-DocumentDate = if_abap_behv=>mk-on
+                                        %control-Documenttype = if_abap_behv=>mk-on
+                                        %control-Documentvalue = if_abap_behv=>mk-on
+                                        %control-igstamount = if_abap_behv=>mk-on
+                                        %control-cgstamount = if_abap_behv=>mk-on
+                                        %control-sgstamount = if_abap_behv=>mk-on
+                                        %control-Company_Code = if_abap_behv=>mk-on
+                                        %control-fiscalyear = if_abap_behv=>mk-on
+                                        %control-EwayFail = if_abap_behv=>mk-on
+                                        %control-EwaybillError = if_abap_behv=>mk-on
+                                        %control-EwaybillNumber = if_abap_behv=>mk-on
+                                        %control-EwaybillValidUpto = if_abap_behv=>mk-on
+                                        %control-Billfromgstin = if_abap_behv=>mk-on
+                                        %control-LocationGstin = if_abap_behv=>mk-on
+                                        %control-Billfromlegalname = if_abap_behv=>mk-on
+                                        %control-Billfromaddress1 = if_abap_behv=>mk-on
+                                        %control-Billfromaddress2 = if_abap_behv=>mk-on
+                                        %control-Billfromcity = if_abap_behv=>mk-on
+                                        %control-Billfrompincode = if_abap_behv=>mk-on
+                                        %control-Billtoaddress1 = if_abap_behv=>mk-on
+                                        %control-Billtoaddress2 = if_abap_behv=>mk-on
+                                        %control-Billtocity = if_abap_behv=>mk-on
+                                        %control-Billtogstin = if_abap_behv=>mk-on
+                                        %control-Billtolegalname = if_abap_behv=>mk-on
+                                        %control-Billtopincode = if_abap_behv=>mk-on
+                                        %control-Dispatchfromname = if_abap_behv=>mk-on
+                                        %control-Dispatchfromadd1 = if_abap_behv=>mk-on
+                                        %control-Dispatchfromadd2 = if_abap_behv=>mk-on
+                                        %control-Dispatchfromcity = if_abap_behv=>mk-on
+                                        %control-Dispatchfrompincode = if_abap_behv=>mk-on
+                                        %control-Shiptoadd1 = if_abap_behv=>mk-on
+                                        %control-Shiptoadd2 = if_abap_behv=>mk-on
+                                        %control-Shiptocity = if_abap_behv=>mk-on
+                                        %control-Shiptopincode = if_abap_behv=>mk-on
+                                        %control-Success = if_abap_behv=>mk-on
+                                        %control-fail = if_abap_behv=>mk-on
+                                        %control-Dispatchfromgstin = if_abap_behv=>mk-on
+                                        %control-Shiptogstin = if_abap_behv=>mk-on
+                                        %control-Shiptoname = if_abap_behv=>mk-on
+                                        %control-transporterid = if_abap_behv=>mk-on
+                                        %control-transportername = if_abap_behv=>mk-on
+                                        %control-transportmode = if_abap_behv=>mk-on
+                                        %control-transporterdocdate = if_abap_behv=>mk-on
+                                        %control-TransporterDocNum = if_abap_behv=>mk-on
+                                        %control-vehiclenumber = if_abap_behv=>mk-on
+                                        %control-vehicletype = if_abap_behv=>mk-on ) ).
+                      reported-zmm_c_challan = VALUE #( FOR WA_ERROR IN WA_VALIDATION_REPORT-propertyerrors
+                                                      ( %msg = new_message_with_text( text = WA_ERROR-errors[ 1 ]-message
+                                                                                      severity = if_abap_behv_message=>severity-error ) )  ).
+                    CATCH cx_sy_itab_line_not_found.
+                  ENDTRY.
+                ENDIF.
+              ENDIF.
+            ELSEIF WA_SUCCESS_EWB-datareport IS NOT INITIAL.
+              DATA(WA_VALIDATION_REPORT1) = WA_SUCCESS_EWB-datareport[ 1 ].
+              IF WA_VALIDATION_REPORT1 IS NOT INITIAL.
+                LOOP AT WA_VALIDATION_REPORT1-ewb-errors INTO DATA(WA_PROPERTY_ERRORS1).
+                  LV_ERROR = |{ LV_ERROR } | && '|' &&  | { WA_PROPERTY_ERRORS1-message }|.
+                ENDLOOP.
+                IF LV_ERROR IS NOT INITIAL.
+                  LV_COUNTER = LV_COUNTER + 1.
+                  TRY.
+                      WA_DATA = LT_TABLE[ 1 ].
+                      LT_CREATE = VALUE #( ( documentnumber = keys[ 1 ]-DocumentNumber
+                                        documentdate = keys[ 1 ]-DocumentDate
+                                        company_code = keys[ 1 ]-Company_Code
+                                        LocationGstin = WA_DATA-locationgstin
+                                        Billfromgstin = WA_DATA-billfromgstin
+                                        Documenttype = WA_DATA-documenttype
+                                        documentvalue = WA_DATA-documentvalue
+                                        cgstamount = WA_DATA-cgstamount
+                                        sgstamount = WA_DATA-sgstamount
+                                        igstamount = WA_DATA-igstamount
+                                        Billfromlegalname = WA_DATA-billfromlegalname
+                                        Billfromaddress1 = WA_DATA-billfromaddress1
+                                        Billfromaddress2 = WA_DATA-billfromaddress2
+                                        Billfromcity = WA_DATA-billfromcity
+                                        Billfrompincode = WA_DATA-billfrompincode
+                                        Billtoaddress1 = WA_DATA-billtoaddress1
+                                        Billtoaddress2 = WA_DATA-billtoaddress2
+                                        Billtocity = WA_DATA-billtocity
+                                        Billtogstin = WA_DATA-billtogstin
+                                        Billtolegalname = WA_DATA-billtolegalname
+                                        Billtopincode = WA_DATA-billtopincode
+                                        Dispatchfromgstin = WA_DATA-dispatchfromgstin
+                                        Dispatchfromname = WA_DATA-billfromlegalname
+                                        Dispatchfromadd1 = WA_DATA-dispatchfromadd1
+                                        Dispatchfromadd2 = WA_DATA-dispatchfromadd2
+                                        Dispatchfromcity = WA_DATA-dispatchfromcity
+                                        Dispatchfrompincode = WA_DATA-dispatchfrompincode
+                                        Shiptoadd1 = WA_DATA-shiptoadd1
+                                        Shiptoadd2 = WA_DATA-shiptoadd2
+                                        Shiptocity = WA_DATA-shiptocity
+                                        Shiptopincode = WA_DATA-shiptopincode
+                                        Shiptoname = WA_DATA-Shiptoname
+                                        Shiptogstin = WA_DATA-shiptogstin
+                                        EwaybillNumber = WA_EWB_DET-ewb-ewaybillnumber
+                                        EwaybillValidUpto = WA_EWB_DET-ewb-validupto
+                                        EwayFail = 'X'
+                                        EwaybillError = LV_ERROR
+                                        fail = ''
+                                        transporterid = COND #( WHEN LT_TRANSPORT_P IS NOT INITIAL THEN LT_TRANSPORT_P[ 1 ]-transporterid )
+                                        transportername = COND #( WHEN LT_TRANSPORT_P IS NOT INITIAL THEN LT_TRANSPORT_P[ 1 ]-transportername )
+                                        transportmode = COND #( WHEN LT_TRANSPORT_P IS NOT INITIAL THEN LT_TRANSPORT_P[ 1 ]-transportmode )
+                                        transporterdocdate = COND #( WHEN LT_TRANSPORT_P IS NOT INITIAL THEN LT_TRANSPORT_P[ 1 ]-transportdocumentdate )
+                                        TransporterDocNum = COND #( WHEN LT_TRANSPORT_P IS NOT INITIAL THEN LT_TRANSPORT_P[ 1 ]-transportdocumentnum )
+                                        vehiclenumber = COND #( WHEN LT_TRANSPORT_P IS NOT INITIAL THEN LT_TRANSPORT_P[ 1 ]-vehiclenumber )
+                                        vehicletype = COND #( WHEN LT_TRANSPORT_P IS NOT INITIAL THEN LT_TRANSPORT_P[ 1 ]-vehicletype )
+                                        %control-DocumentNumber = if_abap_behv=>mk-on
+                                        %control-DocumentDate = if_abap_behv=>mk-on
+                                        %control-Documenttype = if_abap_behv=>mk-on
+                                        %control-Documentvalue = if_abap_behv=>mk-on
+                                        %control-igstamount = if_abap_behv=>mk-on
+                                        %control-cgstamount = if_abap_behv=>mk-on
+                                        %control-sgstamount = if_abap_behv=>mk-on
+                                        %control-Company_Code = if_abap_behv=>mk-on
+                                        %control-fiscalyear = if_abap_behv=>mk-on
+                                        %control-EwayFail = if_abap_behv=>mk-on
+                                        %control-EwaybillError = if_abap_behv=>mk-on
+                                        %control-EwaybillNumber = if_abap_behv=>mk-on
+                                        %control-EwaybillValidUpto = if_abap_behv=>mk-on
+                                        %control-Billfromgstin = if_abap_behv=>mk-on
+                                        %control-LocationGstin = if_abap_behv=>mk-on
+                                        %control-Billfromlegalname = if_abap_behv=>mk-on
+                                        %control-Billfromaddress1 = if_abap_behv=>mk-on
+                                        %control-Billfromaddress2 = if_abap_behv=>mk-on
+                                        %control-Billfromcity = if_abap_behv=>mk-on
+                                        %control-Billfrompincode = if_abap_behv=>mk-on
+                                        %control-Billtoaddress1 = if_abap_behv=>mk-on
+                                        %control-Billtoaddress2 = if_abap_behv=>mk-on
+                                        %control-Billtocity = if_abap_behv=>mk-on
+                                        %control-Billtogstin = if_abap_behv=>mk-on
+                                        %control-Billtolegalname = if_abap_behv=>mk-on
+                                        %control-Billtopincode = if_abap_behv=>mk-on
+                                        %control-Dispatchfromname = if_abap_behv=>mk-on
+                                        %control-Dispatchfromadd1 = if_abap_behv=>mk-on
+                                        %control-Dispatchfromadd2 = if_abap_behv=>mk-on
+                                        %control-Dispatchfromcity = if_abap_behv=>mk-on
+                                        %control-Dispatchfrompincode = if_abap_behv=>mk-on
+                                        %control-Shiptoadd1 = if_abap_behv=>mk-on
+                                        %control-Shiptoadd2 = if_abap_behv=>mk-on
+                                        %control-Shiptocity = if_abap_behv=>mk-on
+                                        %control-Shiptopincode = if_abap_behv=>mk-on
+                                        %control-Success = if_abap_behv=>mk-on
+                                        %control-fail = if_abap_behv=>mk-on
+                                        %control-Dispatchfromgstin = if_abap_behv=>mk-on
+                                        %control-Shiptogstin = if_abap_behv=>mk-on
+                                        %control-Shiptoname = if_abap_behv=>mk-on
+                                        %control-transporterid = if_abap_behv=>mk-on
+                                        %control-transportername = if_abap_behv=>mk-on
+                                        %control-transportmode = if_abap_behv=>mk-on
+                                        %control-transporterdocdate = if_abap_behv=>mk-on
+                                        %control-TransporterDocNum = if_abap_behv=>mk-on
+                                        %control-vehiclenumber = if_abap_behv=>mk-on
+                                        %control-vehicletype = if_abap_behv=>mk-on ) ).
+                      reported-zmm_c_challan = VALUE #( FOR WA_ERROR1 IN WA_VALIDATION_REPORT1-ewb-errors
+                                                      ( %msg = new_message_with_text( text = WA_ERROR1-message
+                                                                                      severity = if_abap_behv_message=>severity-error ) )  ).
+                    CATCH cx_sy_itab_line_not_found.
+                  ENDTRY.
+                ENDIF.
+              ENDIF.
+            ENDIF.
+          ENDIF.
+        ENDIF.
+      ENDIF.
+      IF LT_CREATE IS NOT INITIAL AND LT_EXIST IS NOT INITIAL.
+        IF LT_CREATE[ 1 ]-DocumentNumber EQ LT_EXIST[ 1 ]-DocumentNumber.
+          LT_UPDATE = CORRESPONDING #( LT_CREATE ).
+          CLEAR : LT_CREATE.
+        ENDIF.
+      ENDIF.
+      IF LT_CREATE IS NOT INITIAL OR LT_UPDATE IS NOT INITIAL.
+        MODIFY ENTITIES OF zmm_c_challan
+        IN LOCAL MODE
+        ENTITY zmm_c_challan
+        CREATE AUTO FILL CID WITH LT_CREATE
+        UPDATE FROM LT_UPDATE
+        REPORTED DATA(LT_REPORTED)
+        FAILED DATA(LT_FAILED)
+        MAPPED DATA(LT_MAPPED).
+      ENDIF.
+    ENDIF.
+  ENDMETHOD.
+
+  METHOD get_resp.
+    DATA: WA_GET_RESPONSE_REQ TYPE TY_CANCEL_REQUEST,
+          LT_GET_RESPONSE     TYPE STANDARD TABLE OF TY_DATA_REPORT,
+          LT_UPDATE_LOG       TYPE TABLE FOR UPDATE zmm_c_challan,
+          LT_ERROR_LOG        TYPE STANDARD TABLE OF TY_PROPERTY_ERROR,
+          LV_ERROR            TYPE string,
+          LV_COUNTER          TYPE char10 VALUE '1'.
+    DATA(LO_INVOICE) = NEW zcl_invoice(  ).
+    SELECT document_number,document_date,company_code,fiscal_year,location_gstin,billfromgstin,documenttype
+    FROM zsd_t_einv_log
+    FOR ALL ENTRIES IN @keys
+    WHERE document_number = @keys-DocumentNumber
+    INTO TABLE @DATA(LT_EINV_LOG).
+    IF LT_EINV_LOG IS NOT INITIAL.
+      WA_GET_RESPONSE_REQ-criterias = VALUE #( FOR WA_EINV_LOG IN LT_EINV_LOG (
+                                                 location_gstin = WA_EINV_LOG-location_gstin
+                                                 document_number = |{ WA_EINV_LOG-document_number ALPHA = OUT }|
+                                                 document_date = |{ WA_EINV_LOG-document_date+6(2) }-{ WA_EINV_LOG-document_date+4(2) }-{ WA_EINV_LOG-document_date+0(4) }|
+                                                 document_type = WA_EINV_LOG-documenttype
+                                                 bill_from_gstin = WA_EINV_LOG-billfromgstin
+                                                 supply_type = 'S' ) ).
+      DATA(LV_GET_RESPONSE_REQ) = /ui2/cl_json=>serialize( EXPORTING data = WA_GET_RESPONSE_REQ
+                                                                pretty_name = /ui2/cl_json=>pretty_mode-camel_case ).
+      IF LV_GET_RESPONSE_REQ IS NOT INITIAL.
+        LO_INVOICE->call_cpi( EXPORTING iv_req_payload = LV_GET_RESPONSE_REQ
+                                        iv_action = 'GetEwaybillResponse'
+                              IMPORTING ev_response = DATA(LV_RESPONSE) ).
+        FIND REGEX '"ewayBillNumber"\s*:\s*([0-9]+)' IN LV_RESPONSE SUBMATCHES DATA(LV_EWAYBILL).
+        IF LV_EWAYBILL IS NOT INITIAL.
+          /ui2/cl_json=>deserialize( EXPORTING json = LV_RESPONSE
+                                     CHANGING data = LT_GET_RESPONSE ).
+          FIND REGEX 'pushStatus"\s*:\s*"([^"]*)' IN LV_RESPONSE SUBMATCHES DATA(LV_PUSHSTATUS).
+          IF LV_PUSHSTATUS EQ 'Cancelled'.
+            TRY.
+                DATA(WA_EWAY_RESPONSE) = LT_GET_RESPONSE[ 1 ].
+                LT_UPDATE_LOG = VALUE #( FOR WA_EINV_LOG IN LT_EINV_LOG ( documentnumber = WA_EINV_LOG-document_number
+                                                 documentdate = WA_EINV_LOG-document_date
+                                                 company_code = WA_EINV_LOG-company_code
+                                                 EwaybillNumber = LV_EWAYBILL
+                                                 EwaybillValidUpto = WA_EWAY_RESPONSE-validupto
+                                                 EwaybillDistance = WA_EWAY_RESPONSE-distance
+                                                 EwaybillGenerated = ''
+                                                 EwayCancel = 'X'
+                                                 %control-DocumentNumber = if_abap_behv=>mk-on
+                                                 %control-DocumentDate = if_abap_behv=>mk-on
+                                                 %control-Company_Code = if_abap_behv=>mk-on
+                                                 %control-EwaybillNumber = if_abap_behv=>mk-on
+                                                 %control-EwaybillGenerated = if_abap_behv=>mk-on
+                                                 %control-EwaybillValidUpto = if_abap_behv=>mk-on
+                                                 %control-EwayCancel = if_abap_behv=>mk-on
+                                                 %control-EwaybillDistance = if_abap_behv=>mk-on ) ).
+                reported-zmm_c_challan = VALUE #( (
+                                          %msg = new_message( id = 'EWB'
+                                                              number = '1'
+                                                              severity = if_abap_behv_message=>severity-information
+                                                              v1 = 'E-Way Bill Cancelled'
+                                                             )
+                     ) ).
+              CATCH cx_sy_itab_line_not_found.
+            ENDTRY.
+          ELSE.
+            TRY.
+                WA_EWAY_RESPONSE = LT_GET_RESPONSE[ 1 ].
+                LT_UPDATE_LOG = VALUE #( FOR WA_EINV_LOG IN LT_EINV_LOG ( documentnumber = WA_EINV_LOG-document_number
+                                               documentdate = WA_EINV_LOG-document_date
+                                               company_code = WA_EINV_LOG-company_code
+                                               EwaybillNumber = LV_EWAYBILL
+                                               EwaybillValidUpto = WA_EWAY_RESPONSE-validupto
+                                               EwaybillDistance = WA_EWAY_RESPONSE-distance
+                                               EwaybillGenerated = 'X'
+                                               EwaybillError = ''
+                                               EwayFail = ''
+                                               %control-DocumentNumber = if_abap_behv=>mk-on
+                                               %control-DocumentDate = if_abap_behv=>mk-on
+                                               %control-Company_Code = if_abap_behv=>mk-on
+                                               %control-EwaybillNumber = if_abap_behv=>mk-on
+                                               %control-EwaybillGenerated = if_abap_behv=>mk-on
+                                               %control-EwaybillValidUpto = if_abap_behv=>mk-on
+                                               %control-EwaybillError = if_abap_behv=>mk-on
+                                               %control-EwayFail = if_abap_behv=>mk-on
+                                               %control-EwaybillDistance = if_abap_behv=>mk-on ) ).
+                reported-zmm_c_challan = VALUE #( (
+                                                         %msg = new_message( id = 'EWB'
+                                                                             number = '1'
+                                                                             severity = if_abap_behv_message=>severity-information
+                                                                             v1 = 'E-Way Bill Retrived Sucessfully'
+                                                                            )
+                                    ) ).
+              CATCH cx_sy_itab_line_not_found.
+            ENDTRY.
+          ENDIF.
+        ELSE.
+          /ui2/cl_json=>deserialize( EXPORTING json = LV_RESPONSE
+                                     CHANGING data = LT_ERROR_LOG ).
+          DATA(LT_ERRORS) = VALUE string_table(
+                                               FOR WA_ERROR IN LT_ERROR_LOG
+                                               FOR WA_ERROR_DETAIL IN WA_ERROR-errors
+                                               ( WA_ERROR_DETAIL-message ) ).
+          LV_ERROR = concat_lines_of( table = LT_ERRORS sep = ' | ' ).
+          LT_UPDATE_LOG = VALUE #( FOR WA_EINV_LOG IN LT_EINV_LOG ( documentnumber = WA_EINV_LOG-document_number
+                                             documentdate = WA_EINV_LOG-document_date
+                                             company_code = WA_EINV_LOG-company_code
+                                             EwayFail = 'X'
+                                             EwaybillError = LV_ERROR
+                                             %control-DocumentNumber = if_abap_behv=>mk-on
+                                             %control-DocumentDate = if_abap_behv=>mk-on
+                                             %control-Company_Code = if_abap_behv=>mk-on
+                                             %control-EwayFail = if_abap_behv=>mk-on
+                                             %control-EwaybillError = if_abap_behv=>mk-on ) ).
+          reported-zmm_c_challan = VALUE #( ( %msg = new_message_with_text( text = LV_ERROR
+                                                                           severity = if_abap_behv_message=>severity-error ) )  ).
+        ENDIF.
+        IF LT_UPDATE_LOG IS NOT INITIAL.
+          MODIFY ENTITIES OF zmm_c_challan IN LOCAL MODE
+            ENTITY zmm_c_challan
+            UPDATE FROM LT_UPDATE_LOG
+            FAILED DATA(LT_FAILED)
+            REPORTED DATA(LT_REPORTED)
+            MAPPED DATA(LT_MAPPED).
+        ENDIF.
+      ELSE.
+        reported-zmm_c_challan = VALUE #( ( %msg = new_message( id = 'ZSD_MSG_CYG'
+                                                                number = '002'
+                                                                severity = if_abap_behv_message=>severity-error
+                                                                v1 = keys[ 1 ]-DocumentNumber ) )  ) .
+      ENDIF.
+    ENDIF.
+  ENDMETHOD.
+
+  METHOD download_pdf.
+    DATA: LT_FINAL_TEMP TYPE zsd_tt_ewb_status,
+          LT_FORM_A     TYPE zsd_tt_ewb_part_a,
+          LT_FORM_QR    TYPE zsd_tt_ewb_part_a,
+          LT_FORM_EWB   TYPE zsd_tt_ewb_part_a,
+          LT_FORM_IRN   TYPE zsd_tt_ewb_part_a,
+          LT_FORM_B     TYPE zsd_tt_ewb_part_b.
+    DATA: LV_FM_NAME TYPE rs38l_fnam,
+          WA_CONTROL TYPE ssfctrlop,
+          WA_OUTPUT  TYPE ssfcrescl.
+    LV_FM_NAME = '/1BCDWB/SF00000097'.
+    WA_CONTROL-no_dialog = abap_true.
+    WA_CONTROL-preview   = abap_false.
+    WA_CONTROL-getotf    = abap_true.
+    CALL FUNCTION LV_FM_NAME
+      EXPORTING
+        control_parameters = WA_CONTROL
+        user_settings      = 'X'
+      IMPORTING
+        job_output_info    = WA_OUTPUT
+      TABLES
+        gt_data            = LT_FINAL_TEMP
+        gt_form_qr         = LT_FORM_QR
+        gt_form_ewb        = LT_FORM_EWB
+        gt_form_irn        = LT_FORM_IRN
+        gt_form_a          = LT_FORM_A
+        gt_form_b          = LT_FORM_B
+      EXCEPTIONS
+        formatting_error   = 1
+        internal_error     = 2
+        send_error         = 3
+        user_canceled      = 4
+        OTHERS             = 5.
+    DATA: LT_OTF        TYPE STANDARD TABLE OF itcoo,
+          LT_LINES      TYPE STANDARD TABLE OF tline,
+          LV_PDF        TYPE xstring,
+          LV_PDF_BASE64 TYPE string.
+    LT_OTF = WA_OUTPUT-otfdata.
+    CALL FUNCTION 'CONVERT_OTF'
+      EXPORTING
+        format                = 'PDF'
+      IMPORTING
+        bin_file              = LV_PDF
+      TABLES
+        otf                   = LT_OTF
+        lines                 = LT_LINES
+      EXCEPTIONS
+        err_max_linewidth     = 1
+        err_format            = 2
+        err_conv_not_possible = 3
+        err_bad_otf           = 4
+        OTHERS                = 5.
+    IF sy-subrc <> 0.
+      RETURN.
+    ENDIF.
+    LV_PDF_BASE64 = cl_http_utility=>encode_x_base64( LV_PDF ).
+    result = VALUE #( (
+           %tky = keys[ 1 ]-%tky
+        %param-FileName = |{ keys[ 1 ]-DocumentNumber }.pdf|
+       %param-mimeType = 'application/pdf'
+          %param-pdf_data = LV_PDF_BASE64
+       ) ).
+  ENDMETHOD.
+ENDCLASS.
